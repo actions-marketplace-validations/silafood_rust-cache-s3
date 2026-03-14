@@ -1,7 +1,45 @@
-# Rust Cache Action
+# Rust Cache S3 Action
 
-A GitHub Action that implements smart caching for rust/cargo projects with
-sensible defaults.
+A fork of [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache) that adds S3-compatible storage support (RustFS, MinIO, AWS S3) alongside the original GitHub, BuildJet, and WarpBuild cache providers.
+
+## S3 Support
+
+When `RUNS_ON_S3_BUCKET_CACHE` is set in the environment, cache operations automatically route to S3 instead of GitHub's storage — no workflow changes needed. You can also opt in explicitly with `cache-provider: s3`.
+
+### S3 Environment Variables
+
+| Variable | Purpose |
+|---|---|
+| `RUNS_ON_S3_BUCKET_CACHE` | Bucket name (presence triggers S3 mode) |
+| `RUNS_ON_S3_BUCKET_ENDPOINT` | Custom endpoint URL for self-hosted S3 (RustFS/MinIO) |
+| `RUNS_ON_S3_FORCE_PATH_STYLE` | Set `"true"` for self-hosted S3 |
+| `AWS_ACCESS_KEY_ID` | S3 access key |
+| `AWS_SECRET_ACCESS_KEY` | S3 secret key |
+| `AWS_REGION` | S3 region (default: `us-east-1`) |
+
+### Example — Self-hosted runner with S3
+
+```yaml
+jobs:
+  build:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install stable --profile minimal
+      # S3 env vars injected by runner — action auto-detects S3 mode
+      - uses: silafood/rust-cache-s3@v2.0.0
+      - run: cargo build --release
+```
+
+### Example — Explicit S3 provider
+
+```yaml
+- uses: silafood/rust-cache-s3@v2.0.0
+  with:
+    cache-provider: s3
+```
+
+---
 
 ## Example usage
 
@@ -12,7 +50,7 @@ sensible defaults.
 # before the plugin, as the cache uses the current rustc version as its cache key
 - run: rustup toolchain install stable --profile minimal
 
-- uses: Swatinem/rust-cache@v2
+- uses: silafood/rust-cache-s3@v2.0.0
   with:
     # The prefix cache key, this can be changed to start a new cache manually.
     # default: "v0-rust"
@@ -33,22 +71,15 @@ sensible defaults.
     add-job-id-key: ""
 
     # Whether the a hash of the rust environment should be included in the cache key.
-    # This includes a hash of all Cargo.toml/Cargo.lock files, rust-toolchain files,
-    # and .cargo/config.toml files (if present), as well as the specified 'env-vars'.
     # default: "true"
     add-rust-environment-hash-key: ""
 
     # A whitespace separated list of env-var *prefixes* who's value contributes
     # to the environment cache key.
-    # The env-vars are matched by *prefix*, so the default `RUST` var will
-    # match all of `RUSTC`, `RUSTUP_*`, `RUSTFLAGS`, `RUSTDOC_*`, etc.
     # default: "CARGO CC CFLAGS CXX CMAKE RUST"
     env-vars: ""
 
     # The cargo workspaces and target directory configuration.
-    # These entries are separated by newlines and have the form
-    # `$workspace -> $target`. The `$target` part is treated as a directory
-    # relative to the `$workspace` and defaults to "target" if not explicitly given.
     # default: ". -> target"
     workspaces: ""
 
@@ -56,7 +87,6 @@ sensible defaults.
     cache-directories: ""
 
     # Determines whether workspace `target` directories are cached.
-    # If `false`, only the cargo registry will be cached.
     # default: "true"
     cache-targets: ""
 
@@ -64,35 +94,26 @@ sensible defaults.
     # default: "false"
     cache-on-failure: ""
 
-    # Determines which crates are cached.
     # If `true` all crates will be cached, otherwise only dependent crates will be cached.
-    # Useful if additional crates are used for CI tooling.
     # default: "false"
     cache-all-crates: ""
 
-    # Similar to cache-all-crates.
     # If `true` the workspace crates will be cached.
-    # Useful if the workspace contains libraries that are only updated sporadically.
     # default: "false"
     cache-workspace-crates: ""
 
     # Determines whether the cache should be saved.
-    # If `false`, the cache is only restored.
-    # Useful for jobs where the matrix is additive e.g. additional Cargo features,
-    # or when only runs from `master` should be saved to the cache.
     # default: "true"
     save-if: ""
     # To only cache runs from `master`:
     save-if: ${{ github.ref == 'refs/heads/master' }}
 
-    # Determines whether the cache should be restored.
-    # If `true` the cache key will be checked and the `cache-hit` output will be set
-    # but the cache itself won't be restored
+    # If `true` the cache key will be checked but the cache won't be restored.
     # default: "false"
     lookup-only: ""
 
-    # Specifies what to use as the backend providing cache
-    # Can be set to "github", "buildjet", or "warpbuild"
+    # Specifies the cache backend. Options: "github", "buildjet", "warpbuild", "s3"
+    # Auto-selects "s3" when RUNS_ON_S3_BUCKET_CACHE env var is set.
     # default: "github"
     cache-provider: ""
 
@@ -101,23 +122,18 @@ sensible defaults.
     cache-bin: ""
 
     # A format string used to format commands to be run, i.e. `rustc` and `cargo`.
-    # Must contain exactly one occurance of `{0}`, which is the formatting fragment
-    # that will be replaced with the `rustc` or `cargo` command. This is necessary
-    # when using Nix or other setup that requires running these commands within a
-    # specific shell, otherwise the system `rustc` and `cargo` will be run.
+    # Must contain exactly one occurance of `{0}`.
     # default: "{0}"
     cmd-format: ""
-    # To run within a Nix shell (using the default dev shell of a flake in the repo root):
+    # To run within a Nix shell:
     cmd-format: nix develop -c {0}
 ```
-
-Further examples are available in the [.github/workflows](./.github/workflows/) directory.
 
 ## Outputs
 
 **`cache-hit`**
 
-This is a boolean flag that will be set to `true` when there was an exact cache hit.
+A boolean flag set to `true` when there was an exact cache hit.
 
 ## Cache Effectiveness
 
@@ -143,8 +159,7 @@ This cache is automatically keyed by:
 
 - the github [`job_id`](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_id)
 (if `add-job-id-key` is `"true"`),
-- the rustc release / host / hash (for all installed toolchains when
-  available),
+- the rustc release / host / hash (for all installed toolchains when available),
 - the following values, if `add-rust-environment-hash-key` is `"true"`:
   - the value of some compiler-specific environment variables (eg. RUSTFLAGS, etc), and
   - a hash of all `Cargo.lock` / `Cargo.toml` files found anywhere in the repository (if present).
@@ -161,54 +176,28 @@ Before being persisted, the cache is cleaned of:
 - Incremental build artifacts.
 - Any build artifacts with an `mtime` older than one week.
 
-In particular, the workspace crates themselves are not cached since doing so is
-[generally not effective](https://github.com/Swatinem/rust-cache/issues/37#issuecomment-944697938).
-For this reason, this action automatically sets `CARGO_INCREMENTAL=0` to disable
-incremental compilation, so that the Rust compiler doesn't waste time creating
-the additional artifacts required for incremental builds.
-
-The `~/.cargo/registry/src` directory is not cached since it is quicker for Cargo
-to recreate it from the compressed crate archives in `~/.cargo/registry/cache`.
-
-The action will try to restore from a previous `Cargo.lock` version as well, so
-lockfile updates should only re-build changed dependencies.
-
-The action invokes `cargo metadata` to determine the current set of dependencies.
-
-Additionally, the action automatically works around
-[cargo#8603](https://github.com/rust-lang/cargo/issues/8603) /
-[actions/cache#403](https://github.com/actions/cache/issues/403) which would
-otherwise corrupt the cache on macOS builds.
-
 ## Cache Limits and Control
 
-This specialized cache action is built on top of the upstream cache action
-maintained by GitHub. The same restrictions and limits apply, which are
-documented here:
+For GitHub-backed caches, the same restrictions apply as the upstream cache action:
 [Caching dependencies to speed up workflows](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows)
 
-In particular, caches are currently limited to 10 GB in total and exceeding that
-limit will cause eviction of older caches.
-
-Caches from base branches are available to PRs, but not across unrelated
-branches.
-
-The caches can be controlled using the [Cache API](https://docs.github.com/en/rest/actions/cache)
-which allows listing existing caches and manually removing entries.
+Caches are currently limited to 10 GB in total. For S3-backed caches, limits are determined by your bucket configuration.
 
 ## Debugging
 
-The action prints detailed information about which information it considers
-for its cache key, and it outputs more debug-only information about which
-cleanup steps it performs before persisting the cache.
-
-You can read up on how to [enable debug logging](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/enabling-debug-logging)
-to see those details as well as further details related to caching operations.
+The action prints detailed information about which information it considers for its cache key.
+You can [enable debug logging](https://docs.github.com/en/actions/monitoring-and-troubleshooting-workflows/enabling-debug-logging) to see additional details.
 
 ## Known issues
 
 - The cache cleaning process currently removes all the files from `~/.cargo/bin`
   that were present before the action ran (for example `rustc`), by default.
   This can be an issue on long-running self-hosted runners, where such state
-  is expected to be preserved across runs.  You can work around this by setting
+  is expected to be preserved across runs. You can work around this by setting
   `cache-bin: "false"`.
+
+## Upstream
+
+This action is a fork of [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache).
+All Rust-specific caching logic is inherited from upstream. Only the cache provider
+layer has been extended to support S3.
