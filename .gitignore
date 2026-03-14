@@ -7,3 +7,4 @@ src/*.js
 
 # Mac
 .DS_Store
+openspec/
