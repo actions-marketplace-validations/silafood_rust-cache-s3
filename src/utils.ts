@@ -3,6 +3,7 @@ import * as exec from "@actions/exec";
 import * as buildjetCache from "@actions/buildjet-cache";
 import * as warpbuildCache from "@actions/warpbuild-cache";
 import * as ghCache from "@actions/cache";
+import * as s3Cache from "./custom/cache";
 import fs from "fs";
 
 export function reportError(e: any) {
@@ -58,7 +59,13 @@ export interface CacheProvider {
 }
 
 export function getCacheProvider(): CacheProvider {
-  const cacheProvider = core.getInput("cache-provider");
+  let cacheProvider = core.getInput("cache-provider");
+
+  if (process.env["RUNS_ON_S3_BUCKET_CACHE"] && cacheProvider === "github") {
+    cacheProvider = "s3";
+    core.info("S3 cache bucket detected, using S3 cache provider");
+  }
+
   let cache: GhCache;
   switch (cacheProvider) {
     case "github":
@@ -69,6 +76,9 @@ export function getCacheProvider(): CacheProvider {
       break;
     case "warpbuild":
       cache = warpbuildCache;
+      break;
+    case "s3":
+      cache = s3Cache;
       break;
     default:
       throw new Error(`The \`cache-provider\` \`${cacheProvider}\` is not valid.`);

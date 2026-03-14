@@ -23,12 +23,15 @@
   "homepage": "https://github.com/Swatinem/rust-cache#readme",
   "dependencies": {
     "@actions/buildjet-cache": "npm:github-actions.cache-buildjet@0.2.0",
-    "@actions/warpbuild-cache": "npm:github-actions.warp-cache@1.4.7",
     "@actions/cache": "^6.0.0",
     "@actions/core": "^3.0.0",
     "@actions/exec": "^3.0.0",
     "@actions/glob": "^0.6.1",
     "@actions/io": "^3.0.2",
+    "@actions/warpbuild-cache": "npm:github-actions.warp-cache@1.4.7",
+    "@aws-sdk/client-s3": "^3.1009.0",
+    "@aws-sdk/lib-storage": "^3.1009.0",
+    "@aws-sdk/s3-request-presigner": "^3.1009.0",
     "smol-toml": "^1.6.0"
   },
   "devDependencies": {
@@ -38,6 +41,7 @@
     "typescript": "5.9.3"
   },
   "scripts": {
+    "postinstall": "node -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('node_modules/@actions/cache/package.json','utf8'));if(!p.exports['./lib/internal/*']){p.exports['./lib/internal/*']='./lib/internal/*.js';p.exports['./lib/options']='./lib/options.js';fs.writeFileSync('node_modules/@actions/cache/package.json',JSON.stringify(p,null,2));}\"",
     "prepare": "ncc build --target es2020 -o dist/restore src/restore.ts && ncc build --target es2020 -o dist/save src/save.ts && linefix dist"
   }
 }

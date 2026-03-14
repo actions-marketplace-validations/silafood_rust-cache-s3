@@ -49,7 +49,7 @@ inputs:
     required: false
     default: "true"
   cache-provider:
-    description: "Determines which provider to use for caching. Options are github, buildjet, or warpbuild. Defaults to github."
+    description: "Determines which provider to use for caching. Options are github, buildjet, warpbuild, or s3. Defaults to github. Auto-selects s3 when RUNS_ON_S3_BUCKET_CACHE env var is set."
     required: false
     default: "github"
   cache-bin:
