@@ -94,7 +94,7 @@ async function getCompressionMethod(): Promise<CompressionMethod> {
     }
 
     if (!zstdPath) {
-        core.info("zstd not found, falling back to gzip compression");
+        core.debug("zstd not found, falling back to gzip compression");
         return CompressionMethod.Gzip;
     }
 
@@ -113,12 +113,12 @@ async function getCompressionMethod(): Promise<CompressionMethod> {
     }
 
     if (!versionOutput) {
-        core.info("zstd found but version check failed, falling back to gzip compression");
+        core.debug("zstd found but version check failed, falling back to gzip compression");
         return CompressionMethod.Gzip;
     }
 
     const version = versionOutput.trim().split("\n")[0];
-    core.info(`zstd found (${version}), using zstd multi-threaded compression`);
+    core.debug(`zstd found (${version}), using zstd multi-threaded compression`);
     return CompressionMethod.ZstdWithoutLong;
 }
 

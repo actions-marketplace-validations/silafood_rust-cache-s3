@@ -261,22 +261,20 @@ export async function saveCache(
 
     // Commit Cache
     const cacheSize = utils.getArchiveFileSizeInBytes(archivePath);
-    core.info(
-        `Cache Size: ~${Math.round(
-            cacheSize / (1024 * 1024)
-        )} MB (${cacheSize} B)`
-    );
+    const cacheSizeMB = Math.round(cacheSize / (1024 * 1024));
 
     const totalParts = Math.ceil(cacheSize / uploadPartSize);
-    core.info(`Uploading cache from ${archivePath} to ${bucketName}/${s3Key}`);
-    core.debug(`S3 multipart upload: ${totalParts} part(s) expected`);
+    core.info(`Saving cache to S3: ${bucketName}/${s3Key}`);
+    core.info(`Cache size: ~${cacheSizeMB} MB (${cacheSize} B), uploading in ${totalParts} part(s)`);
+    core.debug(`S3 multipart upload: partSize=${uploadPartSize / (1024 * 1024)}MB, queueSize=${uploadQueueSize}`);
 
     multipartUpload.on("httpUploadProgress", progress => {
+        const loadedMB = Math.round((progress.loaded ?? 0) / (1024 * 1024));
+        core.info(`Uploading cache... part ${progress.part}/${totalParts} (${loadedMB} MB uploaded)`);
         core.debug(`S3 upload progress: part ${progress.part}/${totalParts}, loaded=${progress.loaded} bytes`);
-        core.info(`Uploaded part ${progress.part}/${totalParts}.`);
     });
 
     await multipartUpload.done();
+    core.info(`Cache saved successfully to S3 (${cacheSizeMB} MB)`);
     core.debug(`S3 multipart upload complete: ${bucketName}/${s3Key}`);
-    core.info(`Cache saved successfully.`);
 }
