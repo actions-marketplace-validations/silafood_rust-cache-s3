@@ -38,7 +38,7 @@
     "@types/node": "^25.4.0",
     "@vercel/ncc": "^0.38.4",
     "linefix": "^0.1.1",
-    "typescript": "5.9.3"
+    "typescript": "6.0.2"
   },
   "scripts": {
     "postinstall": "node -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('node_modules/@actions/cache/package.json','utf8'));if(!p.exports['./lib/internal/*']){p.exports['./lib/internal/*']='./lib/internal/*.js';p.exports['./lib/options']='./lib/options.js';fs.writeFileSync('node_modules/@actions/cache/package.json',JSON.stringify(p,null,2));}\"",
