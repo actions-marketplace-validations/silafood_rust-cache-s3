@@ -23,7 +23,7 @@
   "homepage": "https://github.com/Swatinem/rust-cache#readme",
   "dependencies": {
     "@actions/buildjet-cache": "npm:github-actions.cache-buildjet@0.2.0",
-    "@actions/cache": "^6.0.0",
+    "@actions/cache": "^6.0.1",
     "@actions/core": "^3.0.0",
     "@actions/exec": "^3.0.0",
     "@actions/glob": "^0.6.1",
@@ -32,7 +32,7 @@
     "@aws-sdk/client-s3": "^3.1009.0",
     "@aws-sdk/lib-storage": "^3.1009.0",
     "@aws-sdk/s3-request-presigner": "^3.1009.0",
-    "smol-toml": "^1.6.0"
+    "smol-toml": "^1.6.1"
   },
   "devDependencies": {
     "@types/node": "^25.4.0",
